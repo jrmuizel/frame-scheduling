@@ -43,7 +43,7 @@ compositor = Queue()
 renderer = Queue()
 scene_builder = Queue()
 
-COMPOSITOR_SCHEDULE_ON_VSYNC = False
+COMPOSITOR_SCHEDULE_ON_VSYNC = True
 
 total_live_frames = 0
 compositor_live_frames = 0

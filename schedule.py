@@ -127,18 +127,22 @@ print frame_delay / (frame_count * 1000.0), "ms", (frame_delay / (frame_count * 
 
 f = open("out.html", "w+")
 print >> f, "<div style='position: relative; height:40px'>"
-print >> f, "<style>.frame:hover { background: red } .frame { background: black; color: green; opacity:0.5 } .schedule { background: gray } .vsync { background: blue }</style>"
+print >> f, "<style>.frame:hover { background: red } .frame { background: black; color: green; } .schedule { background: rgba(128, 128, 128, 0.5) } .vsync { background: blue }</style>"
 def print_times(frames):
     frame_no = 0
+    colors = ["rgba(255, 0, 0, 0.5)", "rgba(0, 255, 0, 0.5)", "rgba(0, 0, 255, 0.5)"]
     for frame in frames:
+        color = colors[frame_no % len(colors)]
         top = 0
-        print >> f, "<div class='frame' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:40px'>%d</div>" % (top, frame.start_time/1000., (frame.end_time - frame.start_time)/1000., frame_no)
+        print >> f, "<div class='frame' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:40px; background: %s'>%d</div>" % (top, frame.start_time/1000., (frame.end_time - frame.start_time)/1000., color, frame_no)
         top += 42
         for times in zip(frame.enqueue_times, frame.start_times, frame.finish_times):
-            print >> f, "<div class='frame schedule' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:10px'>%d</div>" % (top, times[0]/1000., (times[2]-times[0])/1000., frame_no)
             top += 10
-            print >> f, "<div class='frame' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:20px'></div>" % (top, times[1]/1000., (times[2]-times[1])/1000.)
-            top += 22
+            print >> f, "<div class='frame' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:20px; background: %s'></div>" % (top, times[1]/1000., (times[2]-times[1])/1000., color)
+            top -= 10
+            # the frame label starts higher but we want it to paint on top of box above that is posititioned underneath
+            print >> f, "<div class='frame schedule' style='position: absolute; top: %fpx; left: %fpx; width: %fpx; height:10px'>%d</div>" % (top, times[0]/1000., (times[2]-times[0])/1000., frame_no)
+            top += 32
         frame_no += 1
 
 print_times(finished_frames)

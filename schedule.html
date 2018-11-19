@@ -5,6 +5,7 @@
     <input id="renderer_thread" type="number" min="0" value=39 oninput="do_sim()"></input>
 </div>
 <div id=controls style='position: relative; height:40px'>
+    <label>greedy<input id="greedy" type="checkbox" oninput="do_sim()"></input></label>
     <label>max live frames<input id="max_live_frames" type="number"  min=0 max=99 value=4 oninput="do_sim()"></input></label>
 </div>
 <div id=timeline style='position: relative; height:40px'>
@@ -74,7 +75,7 @@ function run_sim(work_times) {
     let scene_builder = new Queue();
 
     const COMPOSITOR_SCHEDULE_ON_VSYNC = true;
-    const GREEDY = true;
+    let greedy = document.getElementById("greedy").checked;
     let max_live_frames = get("max_live_frames");
 
     let total_live_frames = 0;
@@ -97,7 +98,7 @@ function run_sim(work_times) {
             }
             
             let start_frame = false;
-            if (GREEDY) {
+            if (greedy) {
                 if (total_live_frames < max_live_frames) {
                     start_frame = true;
                 }
@@ -124,7 +125,7 @@ function run_sim(work_times) {
             scene_builder.push(finished_frame);
         }
 
-        if (GREEDY) {
+        if (greedy) {
             scene_builder.schedule(time);
         } else if ((compositor.length < 1 || compositor.current) && compositor.length < 1)  {
             scene_builder.schedule(time);
@@ -141,7 +142,7 @@ function run_sim(work_times) {
             }
         }
 
-        if (GREEDY) {
+        if (greedy) {
             compositor.schedule(time);
         } else if ((renderer.length < 1 || renderer.current) && renderer.length <= 1) {
             compositor.schedule(time);

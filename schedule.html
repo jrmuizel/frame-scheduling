@@ -163,7 +163,7 @@ function do_sim() {
     let writeln = (line) => { result += (line + "\n") }
     log(frame_count);
     writeln(`<div>${(1000 * 1000 * frame_count) / end_time} fps</div>`);
-    writeln(`<div>${(frame_delay / (frame_count * 10000) ).toFixed(3)} ms ${((frame_delay / (frame_count * 1000.0)) / (1000 / 60.)).toFixed(4)} frames</div>`);
+    writeln(`<div>${(frame_delay / (frame_count * 1000) ).toFixed(3)} ms ${((frame_delay / (frame_count * 1000.0)) / (1000 / 60.)).toFixed(4)} frames</div>`);
     writeln("<div style='position: relative; height:40px'>");
     writeln("<style>.frame:hover { background: red } .frame { background: black; color: green; } .schedule { background: rgba(128, 128, 128, 0.5) } .vsync { background: blue }</style>");
     function print_times(frames) {

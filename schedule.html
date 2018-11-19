@@ -49,7 +49,7 @@ zip = (...rows) => [...rows[0]].map((_, c)=>rows.map(row => row[c]));
 log = console.log;
 
 
-function run_sim() {
+function run_sim(work_times) {
     time = 0;
     let end_time = 2000000;
     let frame_count = 0;
@@ -85,7 +85,7 @@ function run_sim() {
             const MAX_QUEUE_LENGTH = 1;
             if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
                 console.log(frame_no, renderer.length);
-                main_thread.push(new Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]));
+                main_thread.push(new Frame(time, work_times.slice()));
 
                 total_live_frames++;
                 frame_no++;
@@ -144,59 +144,67 @@ function run_sim() {
     return {finished_frames, frame_count, end_time, frame_delay};
 }
 
-let {finished_frames, frame_count, end_time, frame_delay} = run_sim();
+function do_sim(work_times) {
 
-log(frame_count);
-log(1000*1000 * frame_count / end_time, "fps");
-log(frame_delay / (frame_count * 10000), "ms", (frame_delay / (frame_count * 1000.0)) / (1000/60.), "frames");
+    let {finished_frames, frame_count, end_time, frame_delay} = run_sim(work_times);
 
-document.open();
-let writeln = document.writeln.bind(document);
-writeln("<div style='position: relative; height:40px'>");
-writeln("<style>.frame:hover { background: red } .frame { background: black; color: green; } .schedule { background: rgba(128, 128, 128, 0.5) } .vsync { background: blue }</style>");
-function print_times(frames) {
+    log(frame_count);
+    log(1000*1000 * frame_count / end_time, "fps");
+    log(frame_delay / (frame_count * 10000), "ms", (frame_delay / (frame_count * 1000.0)) / (1000/60.), "frames");
+    let result = "";
+    let writeln = (line) => { result += (line + "\n")}
+    writeln("<div style='position: relative; height:40px'>");
+    writeln("<style>.frame:hover { background: red } .frame { background: black; color: green; } .schedule { background: rgba(128, 128, 128, 0.5) } .vsync { background: blue }</style>");
+    function print_times(frames) {
     frame_no = 0;
     colors = ["rgba(255, 0, 0, 0.5)", "rgba(0, 255, 0, 0.5)", "rgba(0, 0, 255, 0.5)"];
     for (let frame of frames) {
-        color = colors[frame_no % colors.length];
-        let top = 0;
+    color = colors[frame_no % colors.length];
+    let top = 0;
+    writeln(`<div class='frame'
+        style='position: absolute;
+        top: ${top}px;
+        left: ${frame.start_time/1000.}px;
+        width: ${(frame.end_time - frame.start_time)/1000.}px;
+        height:40px; background: ${color}'>${frame_no}</div>`);
+    top += 42;
+    for (let times of zip(frame.enqueue_times, frame.start_times, frame.finish_times)) {
+        top += 10;
         writeln(`<div class='frame'
-         style='position: absolute;
+            style='position: absolute;
             top: ${top}px;
-            left: ${frame.start_time/1000.}px;
-            width: ${(frame.end_time - frame.start_time)/1000.}px;
-            height:40px; background: ${color}'>${frame_no}</div>`);
-        top += 42;
-        for (let times of zip(frame.enqueue_times, frame.start_times, frame.finish_times)) {
-            top += 10;
-            writeln(`<div class='frame'
-                style='position: absolute;
-                top: ${top}px;
-                left: ${times[1]/1000.}px;
-                width: ${(times[2]-times[1])/1000.}px;
-                height:20px; background: ${color}'></div>`);
-            top -= 10;
-            writeln(`<div class='frame schedule'
-                style='position: absolute;
-                top: ${top}px;
-                left: ${times[0]/1000.}px;
-                width: ${(times[2]-times[0])/1000.}px;
-                height:10px'>${frame_no}</div>`);
-            top += 32;
-        }
-        frame_no++;
+            left: ${times[1]/1000.}px;
+            width: ${(times[2]-times[1])/1000.}px;
+            height:20px; background: ${color}'></div>`);
+        top -= 10;
+        writeln(`<div class='frame schedule'
+            style='position: absolute;
+            top: ${top}px;
+            left: ${times[0]/1000.}px;
+            width: ${(times[2]-times[0])/1000.}px;
+            height:10px'>${frame_no}</div>`);
+        top += 32;
     }
-}
+    frame_no++;
+    }
+    }
 
-print_times(finished_frames);
+    print_times(finished_frames);
 
-let vsync_time = 0;
-while (vsync_time < end_time) {
+    let vsync_time = 0;
+    while (vsync_time < end_time) {
     if (vsync_time % 16666 == 0) {
-        writeln(`<div class='vsync' style='position: absolute; left: ${vsync_time/1000.}px; top: 0px; width: 1px; height:800px'></div>`);
+    writeln(`<div class='vsync' style='position: absolute; left: ${vsync_time/1000.}px; top: 0px; width: 1px; height:800px'></div>`);
     }
     vsync_time++;
+    }
+
+    writeln("</div>");
+
+    return result;
 }
 
-writeln("</div>");
+document.open();
+document.write(do_sim([30*1000, 8*1000, 14*1000, 39*1000]));
+
 </script>

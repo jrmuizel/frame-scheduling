@@ -1,3 +1,11 @@
+<div id=controls style='position: relative; height:40px'>
+    <input id="main_thread" type="number"  min="0" value=30 oninput="do_sim()"></input>
+    <input id="scene_thread" type="number" min="0" value=8 oninput="do_sim()"></input>
+    <input id="render_backend_thread" type="number" min="0" value=14 oninput="do_sim()"></input>
+    <input id="renderer_thread" type="number" min="0" value=39 oninput="do_sim()"></input>
+</div>
+<div id=timeline style='position: relative; height:40px'>
+</div>
 <script>
 let time = 0;
 
@@ -60,7 +68,7 @@ function run_sim(work_times) {
     let renderer = new Queue();
     let scene_builder = new Queue();
 
-    const COMPOSITOR_SCHEDULE_ON_VSYNC = false;
+    const COMPOSITOR_SCHEDULE_ON_VSYNC = true;
 
     let total_live_frames = 0;
     let compositor_live_frames = 0;
@@ -74,7 +82,7 @@ function run_sim(work_times) {
                 if (pending_composite.length > 1) {
                     console.log("skipping frames for composite");
                 }
-                if (compositor.length) {
+                if (compositor.length == 0) {
                     compositor_live_frames++;
                     compositor.push(pending_composite.pop());
                     pending_composite = [];
@@ -143,15 +151,19 @@ function run_sim(work_times) {
     return {finished_frames, frame_count, end_time, frame_delay};
 }
 
-function do_sim(work_times) {
-
+function do_sim() {
+    let get = (name) => document.getElementById(name).value
+    let work_times = [get("main_thread")*1000,
+                      get("scene_thread")*1000,
+                      get("render_backend_thread")*1000,
+                      get("renderer_thread")*1000]
     let { finished_frames, frame_count, end_time, frame_delay } = run_sim(work_times);
 
-    log(frame_count);
-    log(1000 * 1000 * frame_count / end_time, "fps");
-    log(frame_delay / (frame_count * 10000), "ms", (frame_delay / (frame_count * 1000.0)) / (1000 / 60.), "frames");
     let result = "";
     let writeln = (line) => { result += (line + "\n") }
+    log(frame_count);
+    writeln(`<div>${(1000 * 1000 * frame_count) / end_time} fps</div>`);
+    writeln(`<div>${(frame_delay / (frame_count * 10000) ).toFixed(3)} ms ${((frame_delay / (frame_count * 1000.0)) / (1000 / 60.)).toFixed(4)} frames</div>`);
     writeln("<div style='position: relative; height:40px'>");
     writeln("<style>.frame:hover { background: red } .frame { background: black; color: green; } .schedule { background: rgba(128, 128, 128, 0.5) } .vsync { background: blue }</style>");
     function print_times(frames) {
@@ -200,10 +212,9 @@ function do_sim(work_times) {
 
     writeln("</div>");
 
-    return result;
+    document.getElementById("timeline").innerHTML = result;
 }
 
-document.open();
-document.write(do_sim([30*1000, 8*1000, 14*1000, 39*1000]));
-
+do_sim();
 </script>
+

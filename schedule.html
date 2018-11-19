@@ -4,6 +4,9 @@
     <input id="render_backend_thread" type="number" min="0" value=14 oninput="do_sim()"></input>
     <input id="renderer_thread" type="number" min="0" value=39 oninput="do_sim()"></input>
 </div>
+<div id=controls style='position: relative; height:40px'>
+    <label>max live frames<input id="max_live_frames" type="number"  min=0 max=99 value=4 oninput="do_sim()"></input></label>
+</div>
 <div id=timeline style='position: relative; height:40px'>
 </div>
 <script>
@@ -54,6 +57,8 @@ class Frame {
 }
 
 zip = (...rows) => [...rows[0]].map((_, c)=>rows.map(row => row[c]));
+get = (name) => document.getElementById(name).value
+
 log = console.log;
 
 function run_sim(work_times) {
@@ -69,6 +74,8 @@ function run_sim(work_times) {
     let scene_builder = new Queue();
 
     const COMPOSITOR_SCHEDULE_ON_VSYNC = true;
+    const GREEDY = true;
+    let max_live_frames = get("max_live_frames");
 
     let total_live_frames = 0;
     let compositor_live_frames = 0;
@@ -87,10 +94,20 @@ function run_sim(work_times) {
                     compositor.push(pending_composite.pop());
                     pending_composite = [];
                 }
-            } 
+            }
+            
+            let start_frame = false;
+            if (GREEDY) {
+                if (total_live_frames < max_live_frames) {
+                    start_frame = true;
+                }
+            } else {
+                if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
+                    start_frame = true;
+                }
+            }
 
-            const MAX_QUEUE_LENGTH = 1;
-            if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
+            if (start_frame) {
                 main_thread.push(new Frame(time, work_times.slice()));
 
                 total_live_frames++;
@@ -107,7 +124,9 @@ function run_sim(work_times) {
             scene_builder.push(finished_frame);
         }
 
-        if ((compositor.length < 1 || compositor.current) && compositor.length < 1)  {
+        if (GREEDY) {
+            scene_builder.schedule(time);
+        } else if ((compositor.length < 1 || compositor.current) && compositor.length < 1)  {
             scene_builder.schedule(time);
         }
 
@@ -122,7 +141,9 @@ function run_sim(work_times) {
             }
         }
 
-        if ((renderer.length < 1 || renderer.current) && renderer.length <= 1) {
+        if (GREEDY) {
+            compositor.schedule(time);
+        } else if ((renderer.length < 1 || renderer.current) && renderer.length <= 1) {
             compositor.schedule(time);
         }
         finished_frame = compositor.run(time);
@@ -149,7 +170,6 @@ function run_sim(work_times) {
 
 function do_sim() {
     let begin = performance.now();
-    let get = (name) => document.getElementById(name).value
     let work_times = [get("main_thread")*1000,
                       get("scene_thread")*1000,
                       get("render_backend_thread")*1000,

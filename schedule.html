@@ -1,9 +1,5 @@
 <script>
 let time = 0;
-let end_time = 2000000;
-let frame_count = 0;
-let frame_delay = 0;
-let log = console.log;
 
 class Queue extends Array {
     constructor() {
@@ -49,94 +45,107 @@ class Frame {
     }
 }
 
-let main_thread = new Queue();
-let pending_composite = [];
-let compositor = new Queue();
-let renderer = new Queue();
-let scene_builder = new Queue();
+zip = (...rows) => [...rows[0]].map((_, c)=>rows.map(row => row[c]));
+log = console.log;
 
-const COMPOSITOR_SCHEDULE_ON_VSYNC = false;
 
-let total_live_frames = 0;
-let compositor_live_frames = 0;
-let finished_frames = [];
-let frame_no = 0;
+function run_sim() {
+    time = 0;
+    let end_time = 2000000;
+    let frame_count = 0;
+    let frame_delay = 0;
 
-while (time < end_time) {
-    if (time % 16666 == 0) {
-        // vsync
-        if (pending_composite.length) {
-            if (pending_composite.length > 1) {
-                console.log("skipping frames for composite");
+    let main_thread = new Queue();
+    let pending_composite = [];
+    let compositor = new Queue();
+    let renderer = new Queue();
+    let scene_builder = new Queue();
+
+    const COMPOSITOR_SCHEDULE_ON_VSYNC = false;
+
+    let total_live_frames = 0;
+    let compositor_live_frames = 0;
+    let finished_frames = [];
+    let frame_no = 0;
+
+    while (time < end_time) {
+        if (time % 16666 == 0) {
+            // vsync
+            if (pending_composite.length) {
+                if (pending_composite.length > 1) {
+                    console.log("skipping frames for composite");
+                }
+                if (compositor.length) {
+                    compositor_live_frames++;
+                    compositor.push(pending_composite.pop());
+                    pending_composite = [];
+                }
+            } 
+
+            const MAX_QUEUE_LENGTH = 1;
+            if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
+                console.log(frame_no, renderer.length);
+                main_thread.push(new Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]));
+
+                total_live_frames++;
+                frame_no++;
+            } else {
+                console.log("skipped scheduling frame", main_thread.length, scene_builder.length, compositor.length, renderer.length);
             }
-            if (compositor.length) {
+        }
+
+        main_thread.schedule(time);
+        let finished_frame = main_thread.run(time);
+
+        if (finished_frame) {
+            scene_builder.push(finished_frame);
+        }
+
+        if (compositor.length < 1 || compositor.current) {
+            scene_builder.schedule(time);
+        }
+
+        finished_frame = scene_builder.run(time);
+
+        if (finished_frame) {
+            if (COMPOSITOR_SCHEDULE_ON_VSYNC) {
+                pending_composite.push(finished_frame);
+            } else {
                 compositor_live_frames++;
-                compositor.push(pending_composite.pop());
-                pending_composite = [];
+                log("push compositor");
+                compositor.push(finished_frame);
             }
-        } 
-
-        const MAX_QUEUE_LENGTH = 1;
-        if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
-            console.log(frame_no, renderer.length);
-            main_thread.push(new Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]));
-
-            total_live_frames++;
-            frame_no++;
-        } else {
-            console.log("skipped scheduling frame", main_thread.length, scene_builder.length, compositor.length, renderer.length);
         }
-    }
 
-    main_thread.schedule(time);
-    let finished_frame = main_thread.run(time);
-
-    if (finished_frame) {
-        scene_builder.push(finished_frame);
-    }
-
-    if (compositor.length < 1 || compositor.current) {
-        scene_builder.schedule(time);
-    }
-
-    finished_frame = scene_builder.run(time);
-
-    if (finished_frame) {
-        if (COMPOSITOR_SCHEDULE_ON_VSYNC) {
-            pending_composite.push(finished_frame);
-        } else {
-            compositor_live_frames++;
-            log("push compositor");
-            compositor.push(finished_frame);
+        if ((renderer.length < 1 || renderer.current) && renderer.length <= 1) {
+            compositor.schedule(time);
         }
-    }
+        finished_frame = compositor.run(time);
 
-    if ((renderer.length < 1 || renderer.current) && renderer.length <= 1) {
-        compositor.schedule(time);
-    }
-    finished_frame = compositor.run(time);
+        if (finished_frame) {
+            log("push renderer")
+            renderer.push(finished_frame);
+        }
 
-    if (finished_frame) {
-        log("push renderer")
-        renderer.push(finished_frame);
-    }
+        renderer.schedule(time);
+        finished_frame = renderer.run(time);
 
-    renderer.schedule(time);
-    finished_frame = renderer.run(time);
-
-    if (finished_frame) {
-        log("finish frame")
-        total_live_frames--;
-        compositor_live_frames--;
-        frame_count++;
-        frame_delay += (time - finished_frame.start_time);
-        finished_frame.end_time = time;
-        finished_frames.push(finished_frame);
+        if (finished_frame) {
+            log("finish frame")
+            total_live_frames--;
+            compositor_live_frames--;
+            frame_count++;
+            frame_delay += (time - finished_frame.start_time);
+            finished_frame.end_time = time;
+            finished_frames.push(finished_frame);
+        }
+        time++;
     }
-    time++;
+    return {finished_frames, frame_count, end_time, frame_delay};
 }
 
-zip = (...rows) => [...rows[0]].map((_, c)=>rows.map(row => row[c]))
+let {finished_frames, frame_count, end_time, frame_delay} = run_sim();
+
 log(frame_count);
 log(1000*1000 * frame_count / end_time, "fps");
 log(frame_delay / (frame_count * 10000), "ms", (frame_delay / (frame_count * 1000.0)) / (1000/60.), "frames");

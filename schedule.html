@@ -80,7 +80,7 @@ function run_sim(work_times) {
             // vsync
             if (pending_composite.length) {
                 if (pending_composite.length > 1) {
-                    console.log("skipping frames for composite");
+                    //console.log("skipping frames for composite");
                 }
                 if (compositor.length == 0) {
                     compositor_live_frames++;
@@ -91,13 +91,12 @@ function run_sim(work_times) {
 
             const MAX_QUEUE_LENGTH = 1;
             if ((scene_builder.length < 1 || scene_builder.current) && main_thread.length < 1) {
-                console.log(frame_no, renderer.length);
                 main_thread.push(new Frame(time, work_times.slice()));
 
                 total_live_frames++;
                 frame_no++;
             } else {
-                console.log("skipped scheduling frame", main_thread.length, scene_builder.length, compositor.length, renderer.length);
+                //console.log("skipped scheduling frame", main_thread.length, scene_builder.length, compositor.length, renderer.length);
             }
         }
 
@@ -108,7 +107,7 @@ function run_sim(work_times) {
             scene_builder.push(finished_frame);
         }
 
-        if (compositor.length < 1 || compositor.current) {
+        if ((compositor.length < 1 || compositor.current) && compositor.length < 1)  {
             scene_builder.schedule(time);
         }
 
@@ -119,7 +118,6 @@ function run_sim(work_times) {
                 pending_composite.push(finished_frame);
             } else {
                 compositor_live_frames++;
-                log("push compositor");
                 compositor.push(finished_frame);
             }
         }
@@ -130,7 +128,6 @@ function run_sim(work_times) {
         finished_frame = compositor.run(time);
 
         if (finished_frame) {
-            log("push renderer")
             renderer.push(finished_frame);
         }
 
@@ -138,7 +135,6 @@ function run_sim(work_times) {
         finished_frame = renderer.run(time);
 
         if (finished_frame) {
-            log("finish frame")
             total_live_frames--;
             compositor_live_frames--;
             frame_count++;
@@ -152,6 +148,7 @@ function run_sim(work_times) {
 }
 
 function do_sim() {
+    let begin = performance.now();
     let get = (name) => document.getElementById(name).value
     let work_times = [get("main_thread")*1000,
                       get("scene_thread")*1000,
@@ -211,6 +208,8 @@ function do_sim() {
     }
 
     writeln("</div>");
+    let end = performance.now();
+    log(end - begin);
 
     document.getElementById("timeline").innerHTML = result;
 }
